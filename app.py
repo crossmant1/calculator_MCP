@@ -5,7 +5,7 @@ import httpx
 from fastapi import FastAPI, Request, status
 from starlette.responses import JSONResponse
 from pydantic import AnyHttpUrl
-from mcp.server.fastmcp import FastMCP
+# from mcp.server.fastmcp import FastMCP
 
 from tools import calculate_from_dict, CalcError
 
