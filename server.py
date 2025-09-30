@@ -42,7 +42,7 @@ app = FastAPI(title="MCP Calculator Tool", version="1.0.0")
 
 @app.get("/healthz", dependencies=[Depends(get_api_key)])
 async def healthz():
-    return {"status": "ok"}
+    return {"status": "ok"}
 
 
 # --- Modified Endpoint ---
@@ -71,4 +71,5 @@ async def calculate(req: CalculateRequest):
         return CalculateResponse(result=result, op=op, operands=operands)
     except CalcError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
