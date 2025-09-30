@@ -14,9 +14,11 @@ ALLOWED_ORIGINS = set(os.getenv("ALLOWED_ORIGINS", "").split(",")) if os.getenv(
 
 app = FastAPI(title="Calculator MCP (Render)", version="1.0.0")
 
-@app.get("/healthz", dependencies=[Depends(get_api_key)])
-async def healthz():
+
+@app.get("/health")
+def health():
     return {"status": "ok"}
+
 
 # ✅ IMPORTANT: set streamable_http_path="/" so when we mount at "/mcp"
 # the effective endpoint is exactly /mcp/ (not /mcp/mcp).
