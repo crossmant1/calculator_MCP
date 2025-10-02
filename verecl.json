@@ -1,0 +1,19 @@
+{
+  "functions": {
+    "app.py": {
+      "excludeFiles": "**/site-packages/**/*.{so,a,o}"
+    }
+  },
+  "builds": [
+    {
+      "src": "app.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app.py"
+    }
+  ]
+}
