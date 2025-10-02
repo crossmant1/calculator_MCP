@@ -1,35 +1,34 @@
+# app.py
 import os
 import json
 import httpx
-from fastapi import FastAPI, Request, status, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Request, status
+from starlette.responses import JSONResponse
 from pydantic import AnyHttpUrl
-from typing import Dict, Optional, AsyncGenerator
+from modelcontextprotocol.server.fastmcp import FastMCP
+
+# from mcp.server.fastmcp import FastMCP
+
+
 from tools import calculate_from_dict, CalcError
 
-# Environment variables for security
 API_KEY = os.getenv("API_KEY")
+ALLOWED_ORIGINS = set(os.getenv("ALLOWED_ORIGINS", "").split(",")) if os.getenv("ALLOWED_ORIGINS") else None
 
-# Initialize FastAPI app
 app = FastAPI(title="Calculator MCP (Render)", version="1.0.0")
 
-# Add CORS middleware to allow all origins
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["x-api-key", "Content-Type", "Origin"],
-)
 
-# Health check endpoint
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# MCP calculate tool logic
-async def mcp_calculate(json: Optional[Dict] = None, json_url: Optional[AnyHttpUrl] = None) -> str:
+
+# ✅ IMPORTANT: set streamable_http_path="/" so when we mount at "/mcp"
+# the effective endpoint is exactly /mcp/ (not /mcp/mcp).
+mcp = FastMCP("calculator-mcp", stateless_http=True, streamable_http_path="/")
+
+@mcp.tool("calculate", description="Compute result from JSON or a JSON URL.")
+async def mcp_calculate(json: dict | None = None, json_url: AnyHttpUrl | None = None) -> str:
     data = json
     if json_url:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -44,39 +43,20 @@ async def mcp_calculate(json: Optional[Dict] = None, json_url: Optional[AnyHttpU
         raise ValueError(str(e))
     return json.dumps({"result": result, "op": op, "operands": operands})
 
-# MCP endpoint for POST requests
-@app.post("/mcp")
-async def mcp_post(request: Request):
-    try:
-        body = await request.json()
-        tool = body.get("tool")
-        params = body.get("params", {})
-        if tool != "calculate":
-            raise HTTPException(status_code=400, detail=f"Unknown tool: {tool}")
-        try:
-            result = await mcp_calculate(
-                json=params.get("json"),
-                json_url=params.get("json_url")
-            )
-            return {"status": "success", "result": json.loads(result)}
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON payload")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+# Create the Streamable HTTP ASGI app and mount it under /mcp
+# (MCP transport = single endpoint that accepts POSTs; optional SSE via GET) 
+# https://modelcontextprotocol.io/specification/2025-03-26/basic/transports
+mcp_app = mcp.streamable_http_app()
+app.mount("/mcp", mcp_app)
 
-# MCP endpoint for SSE (GET)
-@app.get("/mcp")
-async def mcp_get(request: Request) -> StreamingResponse:
-    async def event_stream() -> AsyncGenerator[str, None]:
-        yield "data: {\"status\": \"streaming not implemented\"}\n\n"
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-# Security middleware for /mcp endpoint (only x-api-key check)
+# Protect /mcp with X-API-Key and (optionally) Origin checks
 @app.middleware("http")
 async def mcp_security(request: Request, call_next):
     if request.url.path.startswith("/mcp"):
         if not API_KEY or request.headers.get("x-api-key") != API_KEY:
             return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "Could not validate credentials"})
+        if ALLOWED_ORIGINS is not None:
+            origin = request.headers.get("origin")
+            if not origin or origin not in ALLOWED_ORIGINS:
+                return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "Origin not allowed"})
     return await call_next(request)
