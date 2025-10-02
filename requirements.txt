@@ -1,7 +1,9 @@
+# requirements.txt
+
 # Pinned versions to resolve dependency conflicts
 fastapi==0.115.0
 starlette==0.37.2
-pydantic==2.8.2
+pydantic==2.10.6
 
 # Uvicorn for running the server
 uvicorn[standard]==0.30.6
