@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 httpx
 starlette
-pydantic
+pydantic==2.10.6
 modelcontextprotocol
+
 
