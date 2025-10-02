@@ -1,11 +1,11 @@
+# Pinned versions to resolve dependency conflicts
 fastapi==0.115.0
+starlette==0.37.2
+pydantic==2.8.2
+
+# Uvicorn for running the server
 uvicorn[standard]==0.30.6
+
+# Other app dependencies
 httpx==0.27.2
-
-# MCP library
 modelcontextprotocol
-
-# Explicitly add the server dependencies that were missing
-# These were previously included by the '[server]' extra
-pydantic
-starlette
